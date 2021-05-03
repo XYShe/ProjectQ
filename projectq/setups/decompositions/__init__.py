@@ -36,7 +36,8 @@ from . import (arb1qubit2rzandry,
                time_evolution,
                uniformlycontrolledr2cnot,
                phaseestimation,
-               amplitudeamplification)
+               amplitudeamplification,
+               householder)
 
 all_defined_decomposition_rules = [
     rule
@@ -64,6 +65,7 @@ all_defined_decomposition_rules = [
                    time_evolution,
                    uniformlycontrolledr2cnot,
                    phaseestimation,
-                   amplitudeamplification]
+                   amplitudeamplification,
+                   householder]
     for rule in module.all_defined_decomposition_rules
 ]

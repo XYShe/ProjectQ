@@ -40,3 +40,4 @@ from ._uniformly_controlled_rotation import (UniformlyControlledRy,
 from ._state_prep import StatePreparation
 from ._qpegate import QPE
 from ._qaagate import QAA
+from ._householder_dec import DenseHouseholderDec, SparseHouseholderDec, Reflection
