@@ -37,7 +37,7 @@ from ._shortcuts import *
 from ._time_evolution import TimeEvolution
 from ._uniformly_controlled_rotation import (UniformlyControlledRy,
                                              UniformlyControlledRz)
-from ._state_prep import StatePreparation
+from ._state_prep import StatePreparation, StatePrepRecur
 from ._qpegate import QPE
 from ._qaagate import QAA
-from ._householder_dec import DenseHouseholderDec, SparseHouseholderDec, Reflection
+from ._householder_dec import DenseHouseholderDec, SparseHouseholderDec, Reflection, SparseReflection

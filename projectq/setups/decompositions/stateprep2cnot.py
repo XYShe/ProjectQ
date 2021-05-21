@@ -21,9 +21,9 @@ import math
 
 from projectq.cengines import DecompositionRule
 from projectq.meta import Control, Dagger
-from projectq.ops import (StatePreparation, Ry, Rz, UniformlyControlledRy,
+from projectq.ops import (StatePreparation, StatePrepRecur, Ry, Rz, UniformlyControlledRy,
                           UniformlyControlledRz, Ph)
-
+from projectq.libs._utils import schmidtDec
 
 def _decompose_state_preparation(cmd):
     """
@@ -82,7 +82,25 @@ def _decompose_state_preparation(cmd):
                 abs_of_blocks = abs_of_next_blocks
 
 
+def _decompose_state_prep_recur(cmd):
+    eng = cmd.engine
+    assert len(cmd.qubits) == 1
+    num_qubits = len(cmd.qubits[0])
+    qureg = cmd.qubits[0]
+
+    v = cmd.gate.final_state
+    if len(v) != 2**num_qubits:
+        raise ValueError("Length of final_state is invalid.")
+    norm = 0.
+    for amplitude in v:
+        norm += abs(amplitude)**2
+    if norm < 1 - 1e-10 or norm > 1 + 1e-10:
+        raise ValueError("final_state is not normalized.")
+    with Control(eng, cmd.control_qubits):
+        sdecomp = schmidtDec(v)
+
 #: Decomposition rules
 all_defined_decomposition_rules = [
-    DecompositionRule(StatePreparation, _decompose_state_preparation)
+    DecompositionRule(StatePreparation, _decompose_state_preparation),
+    DecompositionRule(StatePrepRecur, _decompose_state_prep_recur)
 ]

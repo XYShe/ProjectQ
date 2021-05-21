@@ -55,3 +55,25 @@ class StatePreparation(BasicGate):
 
     def __hash__(self):
         return hash("StatePreparation(" + str(self.final_state) + ")")
+
+
+class StatePrepRecur(BasicGate):
+
+    def __init__(self, final_state):
+
+        BasicGate.__init__(self)
+        self.final_state = list(final_state)
+
+    def __str__(self):
+        return "StatePreparation"
+
+    def __eq__(self, other):
+        if isinstance(other, self.__class__):
+            return self.final_state == other.final_state
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash("StatePreparationRecursive(" + str(self.final_state) + ")")

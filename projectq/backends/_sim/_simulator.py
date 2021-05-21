@@ -21,6 +21,7 @@ implementation is used as an alternative.
 import math
 import random
 import numpy as np
+
 from projectq.cengines import BasicEngine
 from projectq.meta import get_control_count, LogicalQubitIDTag
 from projectq.ops import (NOT,
@@ -33,6 +34,7 @@ from projectq.ops import (NOT,
                           BasicMathGate,
                           TimeEvolution)
 from projectq.types import WeakQubitRef
+from projectq.libs._utils import ctrlmat
 
 FALLBACK_TO_PYSIM = False
 if FALLBACK_TO_PYSIM:
@@ -92,6 +94,7 @@ class Simulator(BasicEngine):
         BasicEngine.__init__(self)
         self._simulator = SimulatorBackend(rnd_seed)
         self._gate_fusion = gate_fusion
+        self._mat = np.array([[1]])
 
     def is_available(self, cmd):
         """
@@ -353,6 +356,9 @@ class Simulator(BasicEngine):
         """
         return self._simulator.cheat()
 
+    def allgate(self):
+        return self._mat
+
     def _handle(self, cmd):
         """
         Handle all commands, i.e., call the member functions of the C++-
@@ -366,8 +372,6 @@ class Simulator(BasicEngine):
             Exception: If a non-single-qubit gate needs to be processed
                 (which should never happen due to is_available).
         """
-        #print(cmd.gate)
-
 
         if cmd.gate == Measure:
             assert(get_control_count(cmd) == 0)
@@ -389,10 +393,12 @@ class Simulator(BasicEngine):
         elif cmd.gate == Allocate:
             ID = cmd.qubits[0][0].id
             self._simulator.allocate_qubit(ID)
+
         elif cmd.gate == Deallocate:
             ID = cmd.qubits[0][0].id
             self._simulator.deallocate_qubit(ID)
         elif isinstance(cmd.gate, BasicMathGate):
+
             # improve performance by using C++ code for some commomn gates
             from projectq.libs.math import (AddConstant,
                                             AddConstantModN,
@@ -428,9 +434,23 @@ class Simulator(BasicEngine):
             qubitids = [qb.id for qb in cmd.qubits[0]]
             ctrlids = [qb.id for qb in cmd.control_qubits]
             self._simulator.emulate_time_evolution(op, t, qubitids, ctrlids)
+
         elif len(cmd.gate.matrix) <= 2 ** 5:
+            print(cmd.gate)
             matrix = cmd.gate.matrix
+            nqubit = int(np.log2(len(self.cheat()[1])))
+
             ids = [qb.id for qr in cmd.qubits for qb in qr]
+            cids = [qb.id for qb in cmd.control_qubits]
+            print(self._mat)
+
+            while self._mat.shape[0] < 2**nqubit :
+                self._mat = np.kron(self._mat,np.array([[1,0],[0,1]]))
+            if len(ids) == 1:
+                new_mat = ctrlmat(cids,ids,nqubit,matrix)
+                self._mat = np.dot(new_mat,self._mat)
+
+
             if not 2 ** len(ids) == len(cmd.gate.matrix):
                 raise Exception("Simulator: Error applying {} gate: "
                                 "{}-qubit gate applied to {} qubits.".format(
