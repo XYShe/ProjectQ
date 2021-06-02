@@ -27,13 +27,63 @@ from projectq.cengines import BasicEngine
 from projectq.meta import ComputeTag, UncomputeTag, Compute, Uncompute
 from projectq.ops import ClassicalInstructionGate
 from projectq.types import BasicQubit
-from projectq.ops import _command, X
+from projectq.ops import X
 from ._util import insert_engine, drop_engine_after
-from enum import Enum
+from projectq.ops import CtrlAll
 
-class State(Enum):
-    AllZero = 0
-    AllOne = -1
+
+def canonical_ctrl_state(ctrl_state, num_qubits):
+    """
+    Return canonical form for control state
+
+    Args:
+        ctrl_state (int,str,CtrlAll): Initial control state representation
+        num_qubits (int): number of control qubits
+
+    Returns:
+        Canonical form of control state (currently a string composed of '0' and '1')
+
+    Note:
+        In case of integer values for `ctrl_state`, the least significant bit applies to the first qubit in the qubit
+        register, e.g. if ctrl_state == 2, its binary representation if '10' with the least significan bit being 0.
+        This means in particular that the followings are equivalent:
+
+        .. code-block:: python
+
+            canonical_ctrl_state(6, 3) == canonical_ctrl_state(6, '110')
+    """
+    if not num_qubits:
+        return ''
+
+    if isinstance(ctrl_state, CtrlAll):
+        if ctrl_state == CtrlAll.One:
+            return '1' * num_qubits
+        return '0' * num_qubits
+
+    if isinstance(ctrl_state, int):
+        # If the user inputs an integer, convert it to binary bit string
+        converted_str = '{0:b}'.format(ctrl_state).zfill(num_qubits)[::-1]
+        if len(converted_str) != num_qubits:
+            raise ValueError(
+                'Control state specified as {} ({}) is higher than maximum for {} qubits: {}'.format(
+                    ctrl_state, converted_str, num_qubits, 2 ** num_qubits - 1
+                )
+            )
+        return converted_str
+
+    if isinstance(ctrl_state, str):
+        # If the user inputs bit string, directly use it
+        if len(ctrl_state) != num_qubits:
+            raise ValueError(
+                'Control state {} has different length than the number of control qubits {}'.format(
+                    ctrl_state, num_qubits
+                )
+            )
+        if not set(ctrl_state).issubset({'0', '1'}):
+            raise ValueError('Control state {} has string other than 1 and 0'.format(ctrl_state))
+        return ctrl_state
+
+    raise TypeError('Input must be a string, an integer or an enum value of class State')
 
 
 class ControlEngine(BasicEngine):
@@ -41,7 +91,7 @@ class ControlEngine(BasicEngine):
     Adds control qubits to all commands that have no compute / uncompute tags.
     """
 
-    def __init__(self, qubits, ctrl_state):
+    def __init__(self, qubits, ctrl_state=CtrlAll.One):
         """
         Initialize the control engine.
 
@@ -72,9 +122,6 @@ class ControlEngine(BasicEngine):
         self.send([cmd])
 
     def receive(self, command_list):
-
-
-
         for cmd in command_list:
             self._handle_command(cmd)
 
@@ -90,7 +137,7 @@ class Control(object):
                 do_something(otherqubits)
     """
 
-    def __init__(self, engine, qubits, ctrl_state=State.AllOne):
+    def __init__(self, engine, qubits, ctrl_state=CtrlAll.One):
         """
         Enter a controlled section.
 
@@ -110,50 +157,19 @@ class Control(object):
         if isinstance(qubits, BasicQubit):
             qubits = [qubits]
         self._qubits = qubits
-
-        # If the user inputs a single digit 0 or 1, extend the digit to all ctrl qubits
-        if ctrl_state == 0  or ctrl_state == '0':
-            self._state = str(ctrl_state)*len(qubits)
-        elif type(ctrl_state) is State:
-            if ctrl_state.value == -1:
-
-                self._state = '1'*len(qubits)
-            else:
-                self._state = '0' * len(qubits)
-        # If the user inputs an integer, convert it to binary bit string
-        elif type(ctrl_state) is int:
-            bit_length = len(self._qubits)
-            self._state = '{0:b}'.format(ctrl_state).zfill(bit_length)
-
-        # If the user inputs bit string, directly use it
-        elif type(ctrl_state) is str:
-            self._state = ctrl_state
-
-        else:
-            raise TypeError('Input must be a string, an integer or class State')
-        # Raise exceptions for wrong cases: invalid string length and number
-        assert len(self._state) == len(self._qubits), 'Control state has different length than control qubits'
-        assert set(self._state).issubset({'0','1'}), 'Control state has string other than 1 and 0'
+        self._state = canonical_ctrl_state(ctrl_state, len(self._qubits))
 
 
     def __enter__(self):
         if len(self._qubits) > 0:
-
-            with Compute(self.engine):
-                for i in range(len(self._state)):
-                    if self._state[i]=='0':
-                        X | self._qubits[i]
-
             ce = ControlEngine(self._qubits, self._state)
             insert_engine(self.engine, ce)
 
 
     def __exit__(self, type, value, traceback):
         # remove control handler from engine list (i.e. skip it)
-
         if len(self._qubits) > 0:
             drop_engine_after(self.engine)
-            Uncompute(self.engine)
 
 
 def get_control_count(cmd):
@@ -161,3 +177,10 @@ def get_control_count(cmd):
     Return the number of control qubits of the command object cmd
     """
     return len(cmd.control_qubits)
+
+
+def has_negative_control(cmd):
+    """
+    Returns whether a command has negatively controlled qubits
+    """
+    return get_control_count(cmd) > 0 and '0' in cmd.control_state
