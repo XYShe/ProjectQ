@@ -10,14 +10,14 @@ from projectq.meta import Control
 from projectq.ops import (All, BasicMathGate, get_inverse, H, Measure, QFT, R, DaggeredGate,
                           Swap, X, DenseHouseholderDec, SparseHouseholderDec, StatePreparation,C,
                           CNOT,MatrixGate)
-from projectq.meta._control import State
 import time
+import random
 from projectq.backends import Simulator, ResourceCounter, CircuitDrawerMatplotlib
 import numpy as np
-from projectq.libs._utils import chop,ctrlmat,stdHHref
+from projectq.libs._utils import chop,ctrlmat,stdHHref, create_iso
     # make the compiler and run the circuit on the simulator backend
 from scipy.stats import unitary_group
-
+import scipy
 resource_counter = ResourceCounter()
 rule_set = DecompositionRuleSet(modules=[projectq.libs.math,
                                          projectq.setups.decompositions])
@@ -34,34 +34,28 @@ def Complex(a,b):
     return a+1j*b
 eng = MainEngine(Simulator())
 n = 2
-x = eng.allocate_qureg(n)
-iso = [[Complex(-0.1742226972380019,0.22676721299188038),
-        Complex(0.30431307206823016,-0.7345582542754363),
-        Complex(0.18555117703730004,0.13799045645485278),
-        Complex(0.18490101079089102,-0.4454007397380378)],
-       [Complex(0.181062856534321,-0.0649957253285508),
-        Complex(0.40851517573037993,0.036355752826448866),
-        Complex(0.28033960283698156,-0.8253581014523761),
-        Complex(-0.16316366736793964,-0.09141519133176651)],
-       [Complex(-0.6019898770916067,0.0827892509304244),
-        Complex(0.21719916999719355,0.08459761540589042),
-        Complex(0.04209922828446449,0.1305498526254742),
-        Complex(-0.7459175716760235,0.034831868339822186)],
-       [Complex(-0.6935457294596152,-0.1759640006069421),
-        Complex(-0.37608263965928074,-0.061975380964489436),
-        Complex(0.21637369278080254,-0.34797977255194745),
-        Complex(0.38281878122410984,0.16820872643571408)]]
+x = eng.allocate_qureg(1)
+y = eng.allocate_qureg(1)
+
+iso = [[0.395249 - 0.527105*1j, 0, 0.746712 - 0.0914316*1j,0],
+[0, -0.106333 + 0.994331*1j, 0, 0],
+[-0.0130445 + 0.0312883 *1j, 0,0.0276758 - 0.0107422 *1j, -0.962676 + 0.26688 *1j],
+[-0.480347 - 0.577976 *1j, 0, -0.0736539 + 0.65403 *1j, -0.00947929 + 0.0440523 *1j]]
 #X | x[0]
-with Control(eng,x[0]):
-    X | x[1]
-#SparseHouseholderDec(iso) | x
+iso1 = [[1,0,0,0],[0,0,1,0],[0,1,0,0],[0,0,0,1]]
+x.extend(y)
+print(x)
+DenseHouseholderDec(iso1) | x
 
 #StatePreparation([0,1/np.sqrt(2),1/np.sqrt(2),0]) | x
 
-All(Measure) | x
-print(eng.backend.allgate())
 
 eng.flush()
+mat=  eng.backend.matout()
+chop(mat)
+print(mat)
+
+All(Measure) | x
 #st = np.array(eng.backend.cheat()[-1])
 #chop(st)
 
@@ -85,4 +79,5 @@ for i in range(n):
 #print(stdHHref(vec.transpose(),np.array(iso)))
 
 
-#
+iso = create_iso(2,3)
+print(iso)

@@ -72,14 +72,22 @@ def _decompose_dense(cmd):
     qureg = cmd.qubits[0]
 
     V = cmd.gate.isometry
-    print("DENSE")
-    assert np.log2(V.shape[1]).is_integer() == True
-    assert np.log2(V.shape[0]).is_integer() == True
-    assert np.log2(V.shape[1]) == num_qubits
+    assert np.log2(V.shape[1]).is_integer() == True, 'Dimension should be power of 2'
+    assert np.log2(V.shape[0]).is_integer() == True, 'Dimension should be power of 2'
+
+    m = int(np.log2(V.shape[1]))
+    n = int(np.log2(V.shape[0]))
+
+
+    assert m == num_qubits, 'The number of columns should equal to number of qubits'
+    assert m <= n, 'Isometry requires dim1 <= dim2'
 
     with Control(eng, cmd.control_qubits):
-        m = int(np.log2(V.shape[1]))
-        n = int(np.log2(V.shape[0]))
+
+        if m < n:
+            aux = eng.allocate_qureg(n-m)
+            qureg.extend(aux)
+
         vecs = []
 
         for i in range(2**m):
@@ -88,18 +96,19 @@ def _decompose_dense(cmd):
             vec = ComputeHouseholderVec(v, i)
 
             if np.abs(vec[i]) != 1:
+
                 V = stdHHref(vec,V)
                 vecs.append(vec)
 
-        diagonal =np.diag(np.diag(V))
-        MatrixGate(diagonal) | qureg
-
+        #diagonal =np.diag(np.diag(V))
+        #MatrixGate(diagonal) | qureg
+        print(vecs[-1])
         DaggeredGate(StatePreparation(vecs[-1]))| qureg
 
 
 
-
         for i in range(1,len(vecs)):
+            print('invoked')
             Reflection(n) | qureg
             DaggeredGate(StatePreparation(vecs[i]))|qureg
             StatePreparation(vecs[i-1]) | qureg
@@ -121,11 +130,22 @@ def _decompose_sparse(cmd):
     iso = cmd.gate.isometry
     print("Sparsed")
 
-    assert np.log2(iso.shape[1]).is_integer() == True
-    assert np.log2(iso.shape[0]).is_integer() == True
-    assert np.log2(iso.shape[1]) == num_qubits
+    assert np.log2(iso.shape[1]).is_integer() == True, 'Dimension should be power of 2'
+    assert np.log2(iso.shape[0]).is_integer() == True, 'Dimension should be power of 2'
+
+    m = int(np.log2(iso.shape[1]))
+    n = int(np.log2(iso.shape[0]))
+
+
+    assert m == num_qubits, 'The number of columns should equal to number of qubits'
+    assert m <= n, 'Isometry requires dim1 <= dim2'
+
 
     with Control(eng, cmd.control_qubits):
+        if m < n:
+            aux = eng.allocate_qureg(n-m)
+            qureg.extend(aux)
+
         V = sparse.csr_matrix(iso)
         gatelist = []
         counter = 0

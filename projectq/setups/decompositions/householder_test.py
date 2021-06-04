@@ -1,9 +1,8 @@
-
+import pytest
 from cmath import exp
 import math
 
 import numpy as np
-import pytest
 import projectq
 from projectq.backends import Simulator
 from projectq.cengines import (AutoReplacer, DecompositionRuleSet,
@@ -13,9 +12,9 @@ from projectq.ops import (BasicGate, ClassicalInstructionGate, MatrixGate,
 from projectq.meta import Control
 
 from scipy.stats import unitary_group
-from . import householder
+from projectq.setups.decompositions import householder
 import projectq.libs.math
-
+from projectq.libs._utils import create_iso
 def create_test_matrices():
     #matrix = unitary_group.rvs(4)
     return [np.array([[1,0,0,0],[0,1,0,0],[0,0,0,1],[0,0,1,0]])]
@@ -23,7 +22,7 @@ def create_test_matrices():
 
 
 
-@pytest.mark.parametrize("gate_matrix", create_test_matrices())
+@pytest.mark.parametrize("gate_matrix", create_iso(2,3))
 def test_dense_decomposition(gate_matrix):
     for basis_state in ([1, 0,0,0], [0,0,0, 1]):
         # Create single qubit gate with gate_matrix
@@ -33,9 +32,9 @@ def test_dense_decomposition(gate_matrix):
 
         correct_dummy_eng = DummyEngine(save_commands=True)
         correct_eng = MainEngine(backend=Simulator(),
-                                )
+                                 )
         rule_set = DecompositionRuleSet(modules=[projectq.libs.math,
-                                                            projectq.setups.decompositions])
+                                                 projectq.setups.decompositions])
         test_dummy_eng = DummyEngine(save_commands=True)
         test_eng = MainEngine(backend=Simulator(),
                               engine_list=[AutoReplacer(rule_set)])
@@ -66,7 +65,7 @@ def test_dense_decomposition(gate_matrix):
         All(Measure) | correct_qb
 
 
-@pytest.mark.parametrize("gate_matrix", create_test_matrices())
+@pytest.mark.parametrize("gate_matrix", create_iso(2,3))
 def test_sparse_decomposition(gate_matrix):
     for basis_state in ([1, 0,0,0], [0,0,0, 1],[0,1,0,0],[0,0,1,0]):
         # Create single qubit gate with gate_matrix

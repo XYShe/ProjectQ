@@ -1,7 +1,30 @@
 import numpy as np
 from projectq.ops import Toffoli, Rx, Rz, Ry, Reflection
 import itertools
+import random
+import scipy
+def create_psi(n):
+    psi = np.zeros((n,1)).astype(complex)
+    phi = random.random() * 2 * np.pi
+    for i in range(n):
+        psi[i] = random.random()*(np.cos(phi)+1j*np.sin(phi))
 
+    return psi/np.sqrt(np.trace(np.dot(np.conjugate(np.transpose(psi)),psi)))
+
+def create_iso(m,n):
+    assert m <= n, 'Isometry requires dimension 1 <= dimension 2'
+    m1 = np.zeros((m,m)).astype(complex)
+    m2 = np.zeros((m,n)).astype(complex)
+    for i in range(m):
+        m1[i,:] = create_psi(m).transpose()
+        m2[i,:] = create_psi(n).transpose()
+    m1 = scipy.linalg.orth(m1)
+    m2 = scipy.linalg.orth(m2)
+    iso = np.dot(np.conjugate(np.transpose(np.array([m2[0,:]]))),np.array([m1[0,:]]))
+    print(np.array([m1[0,:]]).shape)
+    for i in range(1,m):
+        iso += np.dot(np.conjugate(np.transpose(m2[i,:])),m1[i,:])
+    return iso
 
 def normalized(a, axis=-1, order=2):
     l2 = np.atleast_1d(np.linalg.norm(a, order, axis))
